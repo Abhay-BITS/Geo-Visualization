@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"> <!-- Sets the character encoding for the document -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Sets the viewport to ensure the page is responsive -->
+    <title>Cesium Head Tracking with Depth Data</title> <!-- Title of the webpage -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.86/Build/Cesium/Cesium.js"></script> <!-- Includes Cesium library -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script> <!-- Includes MediaPipe FaceMesh library -->
+    <style>
+        @import url('https://cesium.com/downloads/cesiumjs/releases/1.86/Build/Cesium/Widgets/widgets.css');
+
+        html,
+        body,
+        #cesiumContainer {
+            height: 100%; /* Sets the height of html, body, and #cesiumContainer to 100% */
+            margin: 0; /* Removes default margin */
+            padding: 0; /* Removes default padding */
+            overflow: hidden; /* Prevents scrolling */
+            display: flex; /* Enables flexbox layout */
+            flex-direction: column; /* Stacks children in a column */
+        }
+
+        #videoElement {
+            position: absolute; /* Positions the video element absolutely */
+            top: 10px; /* 10 pixels from the top */
+            left: 10px; /* 10 pixels from the left */
+            width: 160px; /* Sets width to 160 pixels */
+            height: 120px; /* Sets height to 120 pixels */
+            border: 2px; /* Adds a border of 2 pixels */
+            z-index: 1000; /* Ensures the video element is on top */
+        }
+    </style>
+</head>
+
+<body>
+    <div id="cesiumContainer"></div> <!-- Container for the Cesium viewer -->
+    <video id="videoElement" autoplay muted></video> <!-- Video element for webcam feed, auto-playing and muted -->
+    <script>
+        Cesium.Ion.defaultAccessToken = 'Enter Cesium API';
+        const viewer = new Cesium.Viewer('cesiumContainer'); // Creates a new Cesium viewer
+        const mountFuji = {
+            longitude: 138.7274,
+            latitude: 35.3606,
+            height: 3776
+        }; // Coordinates for Mount Fuji
+
+        const center = Cesium.Cartesian3.fromDegrees(
+            mountFuji.longitude,
+            mountFuji.latitude,
+            mountFuji.height
+        ); // Converts Mount Fuji coordinates to Cartesian3
+
+        const transform = Cesium.Transforms.eastNorthUpToFixedFrame(center); // Transforms the coordinate frame
+
+        let previousHeadData = [0, 0, 0]; // Stores previous head tracking data
+        const smoothingFactor = 0.1; // Smoothing factor for head tracking data
+
+        function smoothData(newData, previousData) {
+            return newData.map((val, index) => previousData[index] + smoothingFactor * (val - previousData[index]));
+        } // Function to smooth data
+
+        function getDepthData() {
+            // This function should return depth data in a format suitable for your use case
+            return 10; 
+        }
+
+
+        function updateCesiumMap(headxyz) {
+            const [smoothedHeadX, smoothedHeadY, smoothedHeadZ] = smoothData(headxyz, previousHeadData); // Smooths the head tracking data
+            previousHeadData = [smoothedHeadX, smoothedHeadY, smoothedHeadZ]; // Updates previous head tracking data
+
+            const heading = Cesium.Math.toRadians(smoothedHeadX) *5; // Converts smoothed X data to radians for heading
+            const pitch = Cesium.Math.toRadians(smoothedHeadY)*(-5) ; // Converts smoothed Y data to radians for pitch
+            const range = smoothedHeadZ * 100; // Calculates range based on smoothed Z data
+
+            viewer.scene.camera.lookAtTransform(
+                transform,
+                new Cesium.HeadingPitchRange(heading, pitch, range)
+            ); // Updates Cesium camera position
+        }
+
+     
+        navigator.mediaDevices.getUserMedia({ video: true }) // Requests access to the webcam
+            .then(stream => {
+                const video = document.getElementById('videoElement'); // Gets the video element
+                video.srcObject = stream; // Sets the webcam stream as the video source
+
+                const faceMesh = new FaceMesh({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                }); // Creates a new FaceMesh instance
+
+                faceMesh.setOptions({
+                    maxNumFaces: 1, // Detects a maximum of one face
+                    refineLandmarks: true, // Refines landmarks
+                    minDetectionConfidence: 0.5, // Minimum detection confidence
+                    minTrackingConfidence: 0.5 // Minimum tracking confidence
+                });
+
+                faceMesh.onResults(onResults); // Sets the onResults callback
+
+                function onResults(results) {
+                    if (!results.multiFaceLandmarks) {
+                        return;
+                    }
+
+                    const faceLandmarks = results.multiFaceLandmarks[0]; // Gets the face landmarks
+                    const eyesh = ((faceLandmarks[33].x + faceLandmarks[263].x) / 2) * 2 - 1; // Calculates horizontal eye position
+                    const eyesv = ((faceLandmarks[33].y + faceLandmarks[263].y) / 2) * 2 - 1; // Calculates vertical eye position
+                    const headx = eyesh; // Sets head X position
+                    const heady = eyesv; // Sets head Y position
+                    const headz = getDepthData(); // Gets depth data for head Z position
+
+                    updateCesiumMap([headx, heady, headz]); // Updates the Cesium map
+                }
+
+                function trackHead() {
+                    const canvasElement = document.createElement('canvas'); // Creates a canvas element
+                    canvasElement.width = video.videoWidth; // Sets canvas width
+                    canvasElement.height = video.videoHeight; // Sets canvas height
+                    const canvasCtx = canvasElement.getContext('2d'); // Gets the 2D context of the canvas
+
+                    function renderFrame() {
+                        requestAnimationFrame(renderFrame); // Requests the next animation frame
+                        canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height); // Draws the video frame to the canvas
+                        faceMesh.send({ image: canvasElement }); // Sends the canvas image to FaceMesh
+                    }
+
+                    renderFrame(); // Starts rendering frames
+                }
+
+                trackHead(); // Starts head tracking
+            })
+            .catch(error => {
+                console.error('Error accessing webcam: ', error); // Logs any errors accessing the webcam
+            });
+
+        const socket = new WebSocket('ws://localhost:8765'); // Opens a WebSocket connection
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data); // Parses incoming WebSocket message
+            const headxyz = data.headxyz; // Extracts head tracking data
+            updateCesiumMap(headxyz); // Updates the Cesium map with the new data
+        };
+
+        socket.onerror = function (error) {
+            console.error('WebSocket Error: ', error); // Logs any WebSocket errors
+        };
+
+        socket.onopen = function () {
+            console.log('WebSocket Connection Established'); // Logs when the WebSocket connection is established
+        };
+
+        socket.onclose = function () {
+            console.log('WebSocket Connection Closed'); // Logs when the WebSocket connection is closed
+        };
+    </script>
+</body>
+
+</html>
