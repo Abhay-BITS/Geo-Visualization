@@ -26,3 +26,9 @@ This project leverages CesiumJS for 3D visualization and MediaPipe for head trac
 1. Clone the repository:
    ```sh
    git clone <repository-url>
+   
+2. Navigate to the project directory:
+ ```sh
+   cd <project-directory>
+
+   
