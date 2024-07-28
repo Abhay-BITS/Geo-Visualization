@@ -1,8 +1,4 @@
 # Cesium Head Tracking with Depth Data using Intel Realsense Sensor
-This project involves integrating head orientation data from a WebSocket into a CesiumJS application for visualizing a 3D object, specifically Mount Fuji. The project also utilizes Intel RealSense camera for enhanced visualization with depth data.
-
-
-# Project Name
 
 This project involves integrating head orientation data from a WebSocket into a CesiumJS application for visualizing a 3D object, specifically Mount Fuji. The project also utilizes Intel RealSense camera for enhanced visualization with depth data.
 
