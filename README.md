@@ -38,12 +38,12 @@ This project leverages CesiumJS for 3D visualization and MediaPipe for head trac
 - The Cesium viewer will display the 3D visualization of Mount Fuji, with the view controlled by your head movements and enhanced by depth data from the Intel RealSense camera.
 
 ## Files 
-'VideoGetHD.py': Script for video handling and processing.
-'VideoGetHD.cpython-312.pyc': Compiled Python bytecode file for VideoGetHD.py.
-'FaceTracker.py': Script for tracking facial landmarks using MediaPipe.
-'VirtualWindow.py': Script for creating a virtual window for visualization.
-'index.html': Main HTML file for the project.
-'script.js': JavaScript file that initializes the Cesium viewer and handles head tracking.
+- 'VideoGetHD.py': Script for video handling and processing.
+- 'VideoGetHD.cpython-312.pyc': Compiled Python bytecode file for VideoGetHD.py.
+- 'FaceTracker.py': Script for tracking facial landmarks using MediaPipe.
+- 'VirtualWindow.py': Script for creating a virtual window for visualization.
+- 'index.html': Main HTML file for the project.
+- 'script.js': JavaScript file that initializes the Cesium viewer and handles head tracking.
 
 ## Dependencies
 
